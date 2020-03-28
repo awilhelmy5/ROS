@@ -1,0 +1,455 @@
+#include <SD.h>
+#include <Wire.h>
+#include <SPI.h>
+const int chipSelect = 53;
+
+File DataFile;
+
+
+
+
+
+
+
+
+//VARIABLES________________________________________________________________________________________________________________________________________________________________________
+#include <SparkFunDS1307RTC.h>
+#define PRINT_USA_DATE
+#define SQW_INPUT_PIN 49
+#define SQW_OUTPUT_PIN 47
+
+int hour = 19;
+int minute = 43;
+int second = 20;
+// Set to Monday October 31, 2016:
+int day = 7; // Sunday=1, Monday=2, ..., Saturday=7.
+int date = 11; 
+int month = 1;
+int year = 20;
+
+
+
+#include <LiquidCrystal.h>                                 // Tells the arduino that we are using code from this library
+LiquidCrystal lcd(9, 33, 5, 4, 3, 2);                     // Tells the arduino what pins the LCD Screen is using
+int potPin = 2;                                            // Tells the arduino what pin the Potentiometer is on that chooses values for range and speed limit
+const int switchPin = 22;                                  // Tells the arduino what pin the the slide switch is on that switches between the range and speed limit functions
+const int start_stop_Pin = 7;                              // Tells the arduino what pin the slide switch is on that switches between the setup program and the sensing program
+#define trigPinstart 31                                     // Tells the arduino what pin the trigger pin on the first Ultrasonic sensor is on 
+#define echoPinstart 30                                     // Tells the arduino what pin the echo pin on the first Ultrasonic sensor is on
+#define trigPinfinish 41                                   // Tells the arduino what pin the trigger pin on the second Ultrasonic sensor is on 
+#define echoPinfinish 40                                   // Tells the arduino what pin the echo pin on the secoond Ultrasonic sensor is on 
+#define ledPin 1                                          // Tells the arduino what pin the LED is on
+long durationstart;                                        // How much time it took to send out a signal from the first sensor and recieve it back
+int distancestart;                              // Takes the previous variable and turns it into a distance value (If distance is is lower than 'irange' then sensor circuit begins
+long durationfinish;                                       // How much time it took to send out a signal from the second sensor and recieve it back
+int distancefinish;                             // Takes the previous variable and turns it into a distance value (If distance is is lower than 'irange' then sensor circuit begins
+int cars = 0;                                              // Variable that stores the number of cars going by, it starts off at zero
+int speeding_cars = 0;                                     // Variable that stores the number of speeding cars going by, it starts off at zero                                        // Variable the 
+double passingtime;                                    // Variable that stores the amount of time it takes for a car to pass by, doing so by subtracting c from a
+double a;                                                 // Variable that stores the time when the car crosses the first sensor                                    
+double c;                                                 // Variable that stores the time when the car crosses the second sensor
+unsigned long s;
+unsigned long d;
+double velocity;                                       // Variable for holding the velocity of the car crossing by
+unsigned long timelimit1;
+
+float  val = 0.0;                                          // Variable holding the value of potPin
+int i = 0;                                                 // Variable that takes the val and turns it into an integer so that it may be used in an if statement 
+int ispeed = 0;                                            // This resets the speed limit to zero when the program turns on
+int irange = 0;                                            // This resets the range to zero when the program turns on
+
+int speedlimit0 = 73;                                      // The following list splits up all of the potentiometers values into 13 different blocks, and each block has(continued)
+int speedlimit1 = 146;                                     // it's own speed limit associated with it. This allows the potientometer to be used on a different scale (continued)
+int speedlimit2 = 219;                                     // than it's original scale
+int speedlimit3 = 292;
+int speedlimit4 = 365;
+int speedlimit5 = 438;
+int speedlimit6 = 511;
+int speedlimit7 = 584;
+int speedlimit8 = 657;
+int speedlimit9 = 730;
+int speedlimit10 = 803;
+int speedlimit11 = 876;
+int speedlimit12 = 949;
+int speedlimit13 = 1025;
+
+int rangelimit0 = 73;                                      // The following list splits up all of the potentiometers values into 13 different blocks, and each block has(continued)
+int rangelimit1 = 146;                                     // it's own distance range associated with it. This allows the potientometer to be used on a different scale (continued)
+int rangelimit2 = 219;                                     // than it's original scale
+int rangelimit3 = 292;
+int rangelimit4 = 365;
+int rangelimit5 = 438;
+int rangelimit6 = 511;
+int rangelimit7 = 584;
+int rangelimit8 = 657;
+int rangelimit9 = 730;
+int rangelimit10 = 803;
+int rangelimit11 = 876;
+int rangelimit12 = 949;
+int rangelimit13 = 1025;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//DEFINING VARIABLES AS INPUTS AND OUTPUTS AND INITIALIZING ALL THE SENSORS AND SCREENS____________________________________________________________________________________________
+void setup() {
+ pinMode(1, OUTPUT);   
+  Serial.begin (9600);                                     // Set's up the Serial Moniter (The user interface built into Arduino)
+
+  Wire.begin();
+
+   
+
+  pinMode(trigPinstart, OUTPUT);                           // Defines the first sensors trigger as an Output
+  pinMode(echoPinstart, INPUT);                            // Defines the first sensors echo as an Input
+  pinMode(trigPinfinish, OUTPUT);                          // Defines the second sensors trigger as an Output
+  pinMode(echoPinfinish, INPUT);                           // Defines the second sensors echo as an Input
+  pinMode(1, OUTPUT);                                 // Defines the LED as an Output
+  //digitalWrite(echoPinstart, HIGH);
+  pinMode(switchPin, INPUT);                               // Defines the switch that switches between the range and speed limit functions as an Input
+  pinMode(start_stop_Pin, INPUT);                          // Defines the switch that switches between the setup circuit and the sensor circuit as an Input
+  pinMode(potPin, INPUT);                                  // Defines the Potentiometer that chooses the values for the range and speed limit as an Input
+  lcd.begin(16,2);                                         // Defines the size of the LCD Screen (It is a 16x2 screen (16 columns, 2 rows))
+  pinMode(SQW_INPUT_PIN, INPUT_PULLUP);
+  pinMode(SQW_OUTPUT_PIN, OUTPUT);
+  digitalWrite(SQW_OUTPUT_PIN, digitalRead(SQW_INPUT_PIN));
+  rtc.begin();
+  rtc.writeSQW(SQW_SQUARE_1);
+  //rtc.autoTime();
+  rtc.set12Hour();
+  //rtc.setTime(second, minute, hour, day, date, month, year);
+  lcd.print("Hello there");                                // Prints "Hello there" to the screen
+  delay(3000);                                             // Wait 3 seconds
+  lcd.clear();                                             // Clear the LCD screen
+  digitalWrite(1, LOW);                               // Turn off the LED
+  delay(3000);
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//THIS IS THE LOOP, SO THE ACTAUL PROGRAM IS STARTING TO RUN RIGHT HERE. THE ACTAUL PROGRAM IS SPLIT INTO TWO DIFFERENT PARTS______________________________________________________
+void loop() {
+  
+int start_stop_PinVal;                                     // creates a variable to store the value of the switch that chooses betweeen the setup program and the sensor program
+restart:
+start_stop_PinVal = digitalRead(start_stop_Pin);           // Read the first switch which to determines whether or not to run the Setup progtam
+
+  if (start_stop_PinVal == HIGH){                            // Read the Pin, if HIGH then run the setup program, if LOW run the Sensor Program
+  // RUN THE SETUP PROGRAM_________________________________________________________________________________________________________________________________________________________
+
+
+ 
+ 
+            int switchVal;                                // creates a variable to store the value of the switch that chooses betweeen range and speed limit
+            switchVal = digitalRead(switchPin);           // Read the value of the switch
+            if(switchVal == HIGH){                        // If the switch value is HIGH, run the Range setup program
+              // RUN THE RANGE SETUP PROGRAM______________________________________________________________________________________________________________________
+  
+                 float val = 0.0;                         // Reset the Potionemeter value to zero
+                 val = analogRead(potPin);                // Set the value of the Potentiometer to the value that the arduino reads from the POT
+                 delay(100);                              // Wait 1 second to give it time to make an accurate reading           
+                 int i = val;                             // Turn the value into an integer so that it may be used in an if statement
+                 delay(500);                              // Wait .5 seconds to give it time to correctly turn it into an integer
+
+
+                 if(i <= rangelimit0) {irange = 0;}                            // Take the i value and see which block it fits into, and use that to determine (continued)
+                 if(rangelimit0 < i && i <= rangelimit1) {irange = 34;}        // the value that the user chooses as their distance threshold for the sensor to use (continued)
+                 if(rangelimit1 < i && i <= rangelimit2) {irange = 68;}        // to know when something is crossing the sensor
+                 if(rangelimit2 < i && i <= rangelimit3) {irange = 102;}
+                 if(rangelimit3 < i && i <= rangelimit4) {irange = 136;}
+                 if(rangelimit4 < i && i <= rangelimit5) {irange = 170;}
+                 if(rangelimit5 < i && i <= rangelimit6) {irange = 204;}
+                 if(rangelimit6 < i && i <= rangelimit7) {irange = 238;}
+                 if(rangelimit7 < i && i <= rangelimit8) {irange = 272;}
+                 if(rangelimit8 < i && i <= rangelimit9) {irange = 306;}
+                 if(rangelimit9 < i && i <= rangelimit10) {irange = 340;}
+                 if(rangelimit10 < i && i <= rangelimit11) {irange = 374;}
+                 if(rangelimit11 < i && i <= rangelimit12) {irange = 408;}
+                 if(rangelimit12 < i && i <= rangelimit13) {irange = 450;}
+
+    
+                    lcd.clear();                         // Clear the LCD Screen
+                    lcd.setCursor(0,0);                  // Set the cursor in the Top Left
+                    lcd.print("Range(cm) = ");           // Print the text "Range(cm) = "
+                    lcd.print(irange);                   // After that tect print the range that was set with the potentiometer in the if statements above         
+                    delay(500);                          // Allow for reset of a sensor
+            }
+
+
+
+
+
+
+            else {
+              //RUN THE SPEED LIMIT SETUP PROGRAM________________________________________________________________________________________________________________
+            
+               float val = 0.0;                         // Set the Potentiometer Value to Zero
+               val = analogRead(potPin);                // Read the value of the Potionemeter
+               delay(100);                              // Wait .1 seconds so that the Potentiometer value can be accurately taken
+               int i = val;                             // Convert that value to an integer so it can be uesd in an IF statement
+               delay(500);                              // Delay .5 seconds to make sure that it has time to do the conversion
+
+
+
+               if(i <= speedlimit0) {ispeed = 0;}                             // Take the i value and find out which block i fits into. Each block has a range is a (continued)
+               if(speedlimit0 < i && i <= speedlimit1) {ispeed = 5;}          // different speed limit. This allows the potientiometer to be used to control the speed (continued) 
+               if(speedlimit1 < i && i <= speedlimit2) {ispeed = 10;}         // limit variable used in the sensor program
+               if(speedlimit2 < i && i <= speedlimit3) {ispeed = 15;}
+               if(speedlimit3 < i && i <= speedlimit4) {ispeed = 20;}
+               if(speedlimit4 < i && i <= speedlimit5) {ispeed = 25;}
+               if(speedlimit5 < i && i <= speedlimit6) {ispeed = 30;}
+               if(speedlimit6 < i && i <= speedlimit7) {ispeed = 35;}
+               if(speedlimit7 < i && i <= speedlimit8) {ispeed = 40;}
+               if(speedlimit8 < i && i <= speedlimit9) {ispeed = 45;}
+               if(speedlimit9 < i && i <= speedlimit10) {ispeed = 50;}
+               if(speedlimit10 < i && i <= speedlimit11) {ispeed = 55;}
+               if(speedlimit11 < i && i <= speedlimit12) {ispeed = 60;}
+               if(speedlimit12 < i && i <= speedlimit13) {ispeed = 65;}
+
+
+                  lcd.clear();                        // Clear the LCD Screen
+                  lcd.setCursor(0,1);                 // Set the cursor the first column, second row
+                  lcd.print("Speed(MPH) = ");         // Print "Speed(MPH) = " on the LCD Screen
+                  lcd.print(ispeed);                  // After the previous text, print the range that was chosen in the if statements directly above
+                  delay(500);                         // Time delay to allow for reset of a sensor
+          }
+  }
+
+
+
+//|#|#|#|#|#|#|#|#|#|#|#|#|#|#|#|#|#|#|#|#|#|#|#|#|#|#|#|#|#|#|#|#|#|#|#|#|#|#|#|#|#|#|#|#|#|#|#|#|#|#|#|#|#|#|#|#|#|#|#|#|#|#|#|#|#|#|#|#|#|#|#|#|#|#|#|#|#|#|#|#|#|#|#|#|#|#|#|
+
+  
+    else {
+      // RUN THE SENSOR PROGRAM____________________________________________________________________________________________________________________________________________________
+
+       lcd.clear();
+       lcd.setCursor(0,0);
+       lcd.print("Range(cm) = ");
+       lcd.print(irange);
+       lcd.setCursor(0,1);
+       lcd.print("Speed(MPH) = ");
+       lcd.print(ispeed);
+       delay(100);
+       s = millis();
+       unsigned long tentime = 10000;
+       timelimit1 = s + tentime;
+       d = millis();
+       //Serial.println(timelimit1);
+       //Serial.println(d);
+
+
+   while(d < timelimit1){
+  bailout:
+ 
+
+  digitalWrite(trigPinstart, LOW); // Set the trigger pin to low for 2uS
+  delayMicroseconds(2);
+  digitalWrite(trigPinstart, HIGH); // Send a 10uS high to trigger ranging
+  delayMicroseconds(10);
+  digitalWrite(trigPinstart, LOW); // Send pin low again
+  int distancestart = pulseIn(echoPinstart, HIGH,26000);
+  distancestart = distancestart/58;
+  //Serial.print("Distance Start:  ");
+  //Serial.print(distancestart);
+  //Serial.println("   cm");
+  d = millis();
+  delay(10);// Wait 50mS before next ranging\
+
+
+  
+  if (distancestart < irange) {
+    a = millis();
+    digitalWrite(1, HIGH);
+
+    
+    digitalWrite(trigPinfinish, LOW); // Set the trigger pin to low for 2uS
+    delayMicroseconds(2);
+    digitalWrite(trigPinfinish, HIGH); // Send a 10uS high to trigger ranging
+    delayMicroseconds(10);
+    digitalWrite(trigPinfinish, LOW); // Send pin low again
+    int distancefinish = pulseIn(echoPinfinish, HIGH,26000);
+
+    distancefinish = distancefinish/58;
+    //Serial.print("Distance Finish---------------------:  ");
+    //Serial.print(distancefinish);
+    //Serial.println("   cm");
+    delay(10);
+
+
+   
+    while(distancefinish > irange){
+
+    
+    digitalWrite(1, HIGH);
+
+    
+    digitalWrite(trigPinfinish, LOW); // Set the trigger pin to low for 2uS
+    delayMicroseconds(2);
+    digitalWrite(trigPinfinish, HIGH); // Send a 10uS high to trigger ranging
+    delayMicroseconds(10);
+    digitalWrite(trigPinfinish, LOW); // Send pin low again
+    int distancefinish = pulseIn(echoPinfinish, HIGH,26000);
+    distancefinish = distancefinish/58;
+    //Serial.print("Distance Finish---------------------:  ");
+    //Serial.print(distancefinish);
+    //Serial.println("   cm");
+    delay(10);
+ 
+      
+    
+    if (distancefinish < irange) {
+
+      digitalWrite(1, LOW);
+     
+      //Serial.println("----     ");
+      cars = cars+1;
+      //Serial.print("Total Cars: ");
+      //Serial.println(cars);
+      
+      c = millis();
+      //Serial.println(c);
+      //Serial.println(a);
+      passingtime = (c - a) / 1000;
+      //Serial.println(passingtime);
+      velocity = (60/(passingtime/60))*.00132576;  // this number is the fraction of feet/mile  (Right now we are at 7 feet);
+      //Serial.println(velocity);
+      
+      //Serial.println("     ");
+      if (velocity > ispeed){
+      speeding_cars = speeding_cars + 1;
+      goto optout;
+      }
+      optout:
+      //Serial.print("Speeding Cars: ");
+      //Serial.println(speeding_cars);
+      //Serial.println("----     ");
+      d = millis();
+      delay(10);
+     goto bailout;
+     
+      
+      
+   }
+  else{
+    
+  }
+    }
+   // }
+ 
+    
+    
+  }
+   
+  else {
+    
+  }
+
+}
+
+
+
+Serial.println("---------------"); // 15 dashes             // Serial Moniter Logging
+Serial.println("30 Minute Mark");
+static int8_t lastSecond = -1;
+rtc.update();
+if (rtc.second() != lastSecond)
+{
+  printTime();
+  lastSecond = rtc.second();
+}
+digitalWrite(SQW_OUTPUT_PIN, digitalRead(SQW_INPUT_PIN));
+Serial.println("Speed Limit: ");
+Serial.println(ispeed);
+Serial.print("Total number of Cars: ");
+Serial.println(cars);
+Serial.print("Total Number of Speeding cars");
+Serial.println(speeding_cars);
+Serial.println("---------------"); // 15 dashes
+Serial.println("      ");
+
+cars = 0;
+speeding_cars = 0;
+start_stop_PinVal = digitalRead(start_stop_Pin);
+if (start_stop_PinVal == HIGH){
+goto restart;
+}
+  }
+}
+
+
+
+void printTime()
+{
+  Serial.print(String(rtc.hour()) + ":"); // Print hour
+  if (rtc.minute() < 10)
+    Serial.print('0'); // Print leading '0' for minute
+  Serial.print(String(rtc.minute()) + ":"); // Print minute
+  if (rtc.second() < 10)
+    Serial.print('0'); // Print leading '0' for second
+  Serial.print(String(rtc.second())); // Print second
+
+  if (rtc.is12Hour()) // If we're in 12-hour mode
+  {
+    // Use rtc.pm() to read the AM/PM state of the hour
+    if (rtc.pm()) Serial.print(" PM"); // Returns true if PM
+    else Serial.print(" AM");
+  }
+  
+  Serial.print(" | ");
+
+  // Few options for printing the day, pick one:
+  Serial.print(rtc.dayStr()); // Print day string
+  //Serial.print(rtc.dayC()); // Print day character
+  //Serial.print(rtc.day()); // Print day integer (1-7, Sun-Sat)
+  Serial.print(" - ");
+#ifdef PRINT_USA_DATE
+  Serial.print(String(rtc.month()) + "/" +   // Print month
+                 String(rtc.date()) + "/");  // Print date
+#else
+  Serial.print(String(rtc.date()) + "/" +    // (or) print date
+                 String(rtc.month()) + "/"); // Print month
+#endif
+  Serial.println(String(rtc.year()));        // Print year
+}
+
+
